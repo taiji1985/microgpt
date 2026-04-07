@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autograd Interactive Demo</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg: #0f0f23;
+  --bg2: #1a1a2e;
+  --bg3: #161630;
+  --green: #16c784;
+  --green-dim: #16c78440;
+  --red: #e94560;
+  --red-dim: #e9456040;
+  --yellow: #f0c040;
+  --yellow-dim: #f0c04040;
+  --blue: #6c5ce7;
+  --text: #eaeaea;
+  --text-dim: #8888aa;
+  --border: #2a2a4e;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanline overlay */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 30px 24px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.header h1 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: -0.5px;
+}
+
+.header .tag {
+  background: var(--green-dim);
+  color: var(--green);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.subtitle {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-bottom: 28px;
+  font-weight: 300;
+}
+
+.subtitle code {
+  color: var(--yellow);
+  background: var(--bg2);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* Layout */
+.main-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+}
+
+/* Controls Panel */
+.panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.panel-title {
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+}
+
+.slider-group {
+  margin-bottom: 20px;
+}
+
+.slider-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.slider-label span:first-child {
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.slider-value {
+  color: var(--yellow);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--green);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--green-dim);
+}
+
+/* Function selector */
+.func-selector {
+  margin-bottom: 20px;
+}
+
+.func-btn {
+  display: block;
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 6px;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.func-btn:hover {
+  border-color: var(--green);
+  color: var(--text);
+}
+
+.func-btn.active {
+  border-color: var(--green);
+  background: var(--green-dim);
+  color: var(--green);
+}
+
+/* Step controls */
+.step-controls {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.ctrl-btn {
+  flex: 1;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 10px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ctrl-btn:hover {
+  border-color: var(--green);
+  background: var(--green-dim);
+}
+
+.ctrl-btn.reset {
+  flex: 0.6;
+}
+
+.ctrl-btn.reset:hover {
+  border-color: var(--red);
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+.step-indicator {
+  color: var(--text-dim);
+  font-size: 11px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.step-indicator .current {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* Phase indicator */
+.phase-badge {
+  text-align: center;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  transition: all 0.3s;
+}
+
+.phase-badge.idle {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.phase-badge.forward {
+  background: var(--green-dim);
+  border: 1px solid var(--green);
+  color: var(--green);
+}
+
+.phase-badge.backward {
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  color: var(--red);
+}
+
+.phase-badge.done {
+  background: var(--yellow-dim);
+  border: 1px solid var(--yellow);
+  color: var(--yellow);
+}
+
+/* Graph canvas area */
+.graph-area {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  position: relative;
+  min-height: 420px;
+  overflow: hidden;
+}
+
+.graph-area canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Formula bar */
+.formula-bar {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-top: 20px;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.formula-bar .label {
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+
+.formula-bar .formula {
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.formula .hl-green { color: var(--green); font-weight: 600; }
+.formula .hl-red { color: var(--red); font-weight: 600; }
+.formula .hl-yellow { color: var(--yellow); font-weight: 600; }
+.formula .hl-blue { color: var(--blue); font-weight: 600; }
+.formula .hl-dim { color: var(--text-dim); }
+
+/* Legend */
+.legend {
+  display: flex;
+  gap: 20px;
+  margin-top: 16px;
+  justify-content: center;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legend-dot.fwd { background: var(--green); }
+.legend-dot.bwd { background: var(--red); }
+.legend-dot.val { background: var(--yellow); }
+.legend-dot.grad { background: var(--red); border: 1px solid var(--red); background: transparent; }
+
+/* Code panel below */
+.code-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.code-panel .panel-title {
+  margin-bottom: 12px;
+}
+
+.code-line {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text-dim);
+  transition: all 0.3s;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border-left: 2px solid transparent;
+}
+
+.code-line.active {
+  color: var(--text);
+  background: rgba(22, 199, 132, 0.08);
+  border-left-color: var(--green);
+}
+
+.code-line .kw { color: var(--red); }
+.code-line .fn { color: var(--green); }
+.code-line .num { color: var(--yellow); }
+.code-line .cmt { color: #555577; }
+
+@media (max-width: 900px) {
+  .main-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>Autograd</h1>
+    <span class="tag">INTERACTIVE</span>
+  </div>
+  <p class="subtitle">
+    可视化自动微分：前向构图，反向求导。选择函数，拖动参数，逐步执行。
+  </p>
+
+  <div class="main-grid">
+    <!-- Left Panel -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <div class="panel-title">选择函数</div>
+        <div class="func-selector">
+          <button class="func-btn active" data-fn="0">f = (a + b) * a</button>
+          <button class="func-btn" data-fn="1">f = a * b + relu(a)</button>
+          <button class="func-btn" data-fn="2">f = (a - b)^2</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">输入参数</div>
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>a</span>
+            <span class="slider-value" id="val-a">3.0</span>
+          </div>
+          <input type="range" id="slider-a" min="-5" max="5" step="0.5" value="3">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>b</span>
+            <span class="slider-value" id="val-b">2.0</span>
+          </div>
+          <input type="range" id="slider-b" min="-5" max="5" step="0.5" value="2">
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">控制</div>
+        <div class="phase-badge idle" id="phase-badge">就绪</div>
+        <div class="step-controls">
+          <button class="ctrl-btn" id="btn-prev">&lt;</button>
+          <button class="ctrl-btn" id="btn-auto">Auto ▶</button>
+          <button class="ctrl-btn" id="btn-next">&gt;</button>
+          <button class="ctrl-btn reset" id="btn-reset">Reset</button>
+        </div>
+        <div class="step-indicator">
+          Step <span class="current" id="step-num">0</span> / <span id="step-total">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Graph -->
+    <div>
+      <div class="graph-area" id="graph-area">
+        <canvas id="graph-canvas"></canvas>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot fwd"></div>前向传播 (data)</div>
+        <div class="legend-item"><div class="legend-dot bwd"></div>反向传播 (grad)</div>
+        <div class="legend-item"><div class="legend-dot val"></div>当前激活节点</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formula bar -->
+  <div class="formula-bar" id="formula-bar">
+    <div class="label">公式</div>
+    <div class="formula" id="formula-text">
+      <span class="hl-dim">选择函数并点击 &gt; 开始逐步执行</span>
+    </div>
+  </div>
+
+  <!-- Code panel -->
+  <div class="code-panel">
+    <div class="panel-title">对应 Value 类代码</div>
+    <div id="code-lines">
+      <div class="code-line" data-line="0"><span class="cmt"># 前向传播：构建计算图</span></div>
+      <div class="code-line" data-line="1">a = <span class="fn">Value</span>(<span class="num" id="code-a">3.0</span>)</div>
+      <div class="code-line" data-line="2">b = <span class="fn">Value</span>(<span class="num" id="code-b">2.0</span>)</div>
+      <div class="code-line" data-line="3" id="code-op1"></div>
+      <div class="code-line" data-line="4" id="code-op2"></div>
+      <div class="code-line" data-line="5"><span class="cmt"># 反向传播：链式法则</span></div>
+      <div class="code-line" data-line="6">f.grad = <span class="num">1</span>  <span class="cmt"># dL/dL = 1</span></div>
+      <div class="code-line" data-line="7" id="code-bk1"></div>
+      <div class="code-line" data-line="8" id="code-bk2"></div>
+      <div class="code-line" data-line="9" id="code-bk3"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== Function Definitions ====================
+const FUNCTIONS = [
+  {
+    name: 'f = (a + b) * a',
+    buildNodes: (a, b) => {
+      const c = { id:'c', label:'c = a+b', op:'+', data: a+b, grad:0, x:0.5, y:0.35 };
+      const f = { id:'f', label:'f = c*a', op:'*', data: (a+b)*a, grad:0, x:0.5, y:0.7 };
+      const na = { id:'a', label:'a', op:null, data: a, grad:0, x:0.2, y:0.15 };
+      const nb = { id:'b', label:'b', op:null, data: b, grad:0, x:0.8, y:0.15 };
+      return {
+        nodes: [na, nb, c, f],
+        edges: [
+          { from:'a', to:'c', localGrad: 1 },
+          { from:'b', to:'c', localGrad: 1 },
+          { from:'c', to:'f', localGrad: a },
+          { from:'a', to:'f', localGrad: a+b },
+        ],
+        forwardSteps: [
+          { active:'c', desc:`<span class="hl-green">前向</span> c = a + b = ${a} + ${b} = <span class="hl-yellow">${a+b}</span>`, codeLine: 3 },
+          { active:'f', desc:`<span class="hl-green">前向</span> f = c * a = ${a+b} * ${a} = <span class="hl-yellow">${(a+b)*a}</span>`, codeLine: 4 },
+        ],
+        backwardSteps: [
+          { active:'f', desc:`<span class="hl-red">反向</span> f.grad = <span class="hl-yellow">1</span> &nbsp; <span class="hl-dim">(dL/dL = 1, 起点)</span>`, codeLine: 6,
+            setGrad: {f:1} },
+          { active:'c', desc:`<span class="hl-red">反向</span> c.grad += <span class="hl-blue">dc/df</span> * f.grad = ${a} * 1 = <span class="hl-yellow">${a}</span> &nbsp; <span class="hl-dim">(local_grad = a = ${a})</span>`, codeLine: 7,
+            setGrad: {c:a} },
+          { active:'a', desc:`<span class="hl-red">反向</span> a.grad += <span class="hl-blue">da/dc</span> * c.grad + <span class="hl-blue">da/df</span> * f.grad = 1*${a} + ${a+b}*1 = <span class="hl-yellow">${a + (a+b)}</span> &nbsp; <span class="hl-dim">(两条路径累加)</span>`, codeLine: 8,
+            setGrad: {a: a + (a+b)} },
+          { active:'b', desc:`<span class="hl-red">反向</span> b.grad += <span class="hl-blue">db/dc</span> * c.grad = 1 * ${a} = <span class="hl-yellow">${a}</span>`, codeLine: 9,
+            setGrad: {b: a} },
+        ],
+        codeOps: [
+          `c = a <span class="kw">+</span> b  <span class="cmt"># c.data=${a+b}, local_grads=(1,1)</span>`,
+          `f = c <span class="kw">*</span> a  <span class="cmt"># f.data=${(a+b)*a}, local_grads=(${a},${a+b})</span>`,
+        ],
+        codeBks: [
+          `c.grad += <span class="num">${a}</span> * f.grad  <span class="cmt"># dc/df=${a} (即 a 的值)</span>`,
+          `a.grad += <span class="num">1</span> * c.grad + <span class="num">${a+b}</span> * f.grad  <span class="cmt"># 两条路径</span>`,
+          `b.grad += <span class="num">1</span> * c.grad  <span class="cmt"># db/dc=1</span>`,
+        ]
+      };
+    }
+  },
+  {
+    name: 'f = a * b + relu(a)',
+    buildNodes: (a, b) => {
+      const ab = { id:'ab', label:'ab = a*b', op:'*', data: a*b, grad:0, x:0.3, y:0.35 };
+      const ra = { id:'ra', label:'relu(a)', op:'relu', data: Math.max(0,a), grad:0, x:0.7, y:0.35 };
+      const f = { id:'f', label:'f = ab+ra', op:'+', data: a*b + Math.max(0,a), grad:0, x:0.5, y:0.7 };
+      const na = { id:'a', label:'a', op:null, data: a, grad:0, x:0.2, y:0.15 };
+      const nb = { id:'b', label:'b', op:null, data: b, grad:0, x:0.5, y:0.15 };
+      const reluGrad = a > 0 ? 1 : 0;
+      return {
+        nodes: [na, nb, ab, ra, f],
+        edges: [
+          { from:'a', to:'ab', localGrad: b },
+          { from:'b', to:'ab', localGrad: a },
+          { from:'a', to:'ra', localGrad: reluGrad },
+          { from:'ab', to:'f', localGrad: 1 },
+          { from:'ra', to:'f', localGrad: 1 },
+        ],
+        forwardSteps: [
+          { active:'ab', desc:`<span class="hl-green">前向</span> ab = a * b = ${a} * ${b} = <span class="hl-yellow">${a*b}</span>`, codeLine: 3 },
+          { active:'ra', desc:`<span class="hl-green">前向</span> ra = relu(a) = max(0, ${a}) = <span class="hl-yellow">${Math.max(0,a)}</span>`, codeLine: 4 },
+          { active:'f', desc:`<span class="hl-green">前向</span> f = ab + ra = ${a*b} + ${Math.max(0,a)} = <span class="hl-yellow">${a*b+Math.max(0,a)}</span>`, codeLine: 4 },
+        ],
+        backwardSteps: [
+          { active:'f', desc:`<span class="hl-red">反向</span> f.grad = <span class="hl-yellow">1</span>`, codeLine: 6, setGrad: {f:1} },
+          { active:'ab', desc:`<span class="hl-red">反向</span> ab.grad = 1 * f.grad = <span class="hl-yellow">1</span> &nbsp; <span class="hl-dim">(加法的 local_grad=1)</span>`, codeLine: 7, setGrad: {ab:1} },
+          { active:'ra', desc:`<span class="hl-red">反向</span> ra.grad = 1 * f.grad = <span class="hl-yellow">1</span>`, codeLine: 7, setGrad: {ra:1} },
+          { active:'a', desc:`<span class="hl-red">反向</span> a.grad = ${b}*ab.grad + ${reluGrad}*ra.grad = ${b}*1 + ${reluGrad}*1 = <span class="hl-yellow">${b+reluGrad}</span> &nbsp; <span class="hl-dim">(两条路径)</span>`, codeLine: 8, setGrad: {a:b+reluGrad} },
+          { active:'b', desc:`<span class="hl-red">反向</span> b.grad = ${a} * ab.grad = <span class="hl-yellow">${a}</span>`, codeLine: 9, setGrad: {b:a} },
+        ],
+        codeOps: [
+          `ab = a <span class="kw">*</span> b  <span class="cmt"># ab.data=${a*b}, local_grads=(${b},${a})</span>`,
+          `ra = a.<span class="fn">relu</span>(); f = ab <span class="kw">+</span> ra  <span class="cmt"># relu_grad=${reluGrad}</span>`,
+        ],
+        codeBks: [
+          `ab.grad += <span class="num">1</span>*f.grad; ra.grad += <span class="num">1</span>*f.grad`,
+          `a.grad += <span class="num">${b}</span>*ab.grad + <span class="num">${reluGrad}</span>*ra.grad  <span class="cmt"># 两条路径</span>`,
+          `b.grad += <span class="num">${a}</span> * ab.grad`,
+        ]
+      };
+    }
+  },
+  {
+    name: 'f = (a - b)^2',
+    buildNodes: (a, b) => {
+      const d = { id:'d', label:'d = a-b', op:'-', data: a-b, grad:0, x:0.5, y:0.35 };
+      const f = { id:'f', label:'f = d^2', op:'^2', data: (a-b)**2, grad:0, x:0.5, y:0.7 };
+      const na = { id:'a', label:'a', op:null, data: a, grad:0, x:0.2, y:0.15 };
+      const nb = { id:'b', label:'b', op:null, data: b, grad:0, x:0.8, y:0.15 };
+      const dv = a - b;
+      return {
+        nodes: [na, nb, d, f],
+        edges: [
+          { from:'a', to:'d', localGrad: 1 },
+          { from:'b', to:'d', localGrad: -1 },
+          { from:'d', to:'f', localGrad: 2*dv },
+        ],
+        forwardSteps: [
+          { active:'d', desc:`<span class="hl-green">前向</span> d = a - b = ${a} - ${b} = <span class="hl-yellow">${dv}</span>`, codeLine: 3 },
+          { active:'f', desc:`<span class="hl-green">前向</span> f = d^2 = ${dv}^2 = <span class="hl-yellow">${dv**2}</span>`, codeLine: 4 },
+        ],
+        backwardSteps: [
+          { active:'f', desc:`<span class="hl-red">反向</span> f.grad = <span class="hl-yellow">1</span>`, codeLine: 6, setGrad: {f:1} },
+          { active:'d', desc:`<span class="hl-red">反向</span> d.grad = 2*d * f.grad = 2*${dv} * 1 = <span class="hl-yellow">${2*dv}</span> &nbsp; <span class="hl-dim">(d(x^2)/dx = 2x)</span>`, codeLine: 7, setGrad: {d:2*dv} },
+          { active:'a', desc:`<span class="hl-red">反向</span> a.grad = 1 * d.grad = <span class="hl-yellow">${2*dv}</span> &nbsp; <span class="hl-dim">(d(a-b)/da = 1)</span>`, codeLine: 8, setGrad: {a:2*dv} },
+          { active:'b', desc:`<span class="hl-red">反向</span> b.grad = -1 * d.grad = <span class="hl-yellow">${-2*dv}</span> &nbsp; <span class="hl-dim">(d(a-b)/db = -1)</span>`, codeLine: 9, setGrad: {b:-2*dv} },
+        ],
+        codeOps: [
+          `d = a <span class="kw">-</span> b  <span class="cmt"># d.data=${dv}, local_grads=(1,-1)</span>`,
+          `f = d <span class="kw">**</span> <span class="num">2</span>  <span class="cmt"># f.data=${dv**2}, local_grad=2*${dv}=${2*dv}</span>`,
+        ],
+        codeBks: [
+          `d.grad += <span class="num">${2*dv}</span> * f.grad  <span class="cmt"># 2*d = 2*${dv}</span>`,
+          `a.grad += <span class="num">1</span> * d.grad  <span class="cmt"># d(a-b)/da=1</span>`,
+          `b.grad += <span class="num">-1</span> * d.grad  <span class="cmt"># d(a-b)/db=-1</span>`,
+        ]
+      };
+    }
+  }
+];
+
+// ==================== State ====================
+let currentFn = 0;
+let currentStep = 0;
+let graph = null;
+let autoTimer = null;
+let isAuto = false;
+
+// ==================== Canvas Drawing ====================
+const canvas = document.getElementById('graph-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const area = document.getElementById('graph-area');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = area.clientWidth * dpr;
+  canvas.height = area.clientHeight * dpr;
+  canvas.style.width = area.clientWidth + 'px';
+  canvas.style.height = area.clientHeight + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function getNodePos(node) {
+  const area = document.getElementById('graph-area');
+  const w = area.clientWidth;
+  const h = area.clientHeight;
+  const pad = 60;
+  return {
+    x: pad + node.x * (w - pad*2),
+    y: pad + node.y * (h - pad*2)
+  };
+}
+
+function drawArrow(fromX, fromY, toX, toY, color, width, dashed) {
+  const headLen = 10;
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const angle = Math.atan2(dy, dx);
+  const len = Math.sqrt(dx*dx + dy*dy);
+
+  // Shorten to not overlap node circles
+  const shortenFrom = 32;
+  const shortenTo = 32;
+  const sx = fromX + Math.cos(angle) * shortenFrom;
+  const sy = fromY + Math.sin(angle) * shortenFrom;
+  const ex = toX - Math.cos(angle) * shortenTo;
+  const ey = toY - Math.sin(angle) * shortenTo;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.globalAlpha = 0.7;
+  if (dashed) ctx.setLineDash([6, 4]);
+
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+
+  // Arrowhead
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - headLen * Math.cos(angle - 0.35), ey - headLen * Math.sin(angle - 0.35));
+  ctx.lineTo(ex - headLen * Math.cos(angle + 0.35), ey - headLen * Math.sin(angle + 0.35));
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawEdgeLabel(fromX, fromY, toX, toY, text, color) {
+  const mx = (fromX + toX) / 2;
+  const my = (fromY + toY) / 2;
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const nx = -dy;
+  const ny = dx;
+  const len = Math.sqrt(nx*nx + ny*ny);
+  const offset = 14;
+
+  ctx.save();
+  ctx.font = '10px JetBrains Mono';
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.8;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, mx + (nx/len)*offset, my + (ny/len)*offset);
+  ctx.restore();
+}
+
+function drawNode(node, state) {
+  const pos = getNodePos(node);
+  const isActive = state === 'active';
+  const isForward = state === 'forward';
+  const isBackward = state === 'backward';
+  const isDone = state === 'done';
+  const isIdle = state === 'idle';
+
+  const radius = 28;
+
+  // Glow
+  if (isActive) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius + 12, 0, Math.PI * 2);
+    const grad = ctx.createRadialGradient(pos.x, pos.y, radius, pos.x, pos.y, radius + 16);
+    grad.addColorStop(0, '#f0c04060');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Circle
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+
+  if (isActive) {
+    ctx.fillStyle = '#f0c04030';
+    ctx.strokeStyle = '#f0c040';
+    ctx.lineWidth = 2.5;
+  } else if (isForward) {
+    ctx.fillStyle = '#16c78420';
+    ctx.strokeStyle = '#16c784';
+    ctx.lineWidth = 2;
+  } else if (isBackward || isDone) {
+    ctx.fillStyle = '#e9456020';
+    ctx.strokeStyle = '#e94560';
+    ctx.lineWidth = 2;
+  } else {
+    ctx.fillStyle = '#1a1a2e';
+    ctx.strokeStyle = '#2a2a4e';
+    ctx.lineWidth = 1.5;
+  }
+
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // Label
+  ctx.save();
+  ctx.font = '11px JetBrains Mono';
+  ctx.fillStyle = isIdle ? '#8888aa' : '#eaeaea';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(node.label, pos.x, pos.y - 4);
+
+  // Data value
+  ctx.font = '600 13px JetBrains Mono';
+  ctx.fillStyle = (isForward || isActive || isDone) ? '#f0c040' : '#555577';
+  const dataText = Number.isInteger(node.data) ? node.data.toString() : node.data.toFixed(1);
+  ctx.fillText(dataText, pos.x, pos.y + 12);
+  ctx.restore();
+
+  // Grad badge
+  if (node.grad !== 0 || isBackward || isDone) {
+    const gx = pos.x + radius + 4;
+    const gy = pos.y - radius + 2;
+    const gradText = `grad=${Number.isInteger(node.grad) ? node.grad : node.grad.toFixed(1)}`;
+
+    ctx.save();
+    ctx.font = '600 9px JetBrains Mono';
+    const tw = ctx.measureText(gradText).width;
+    const pw = tw + 8;
+
+    ctx.fillStyle = '#e9456030';
+    ctx.strokeStyle = '#e94560';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(gx - pw/2, gy - 8, pw, 16, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#e94560';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(gradText, gx, gy);
+    ctx.restore();
+  }
+}
+
+function render() {
+  resizeCanvas();
+  const area = document.getElementById('graph-area');
+  const w = area.clientWidth;
+  const h = area.clientHeight;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (!graph) return;
+
+  const totalFwd = graph.forwardSteps.length;
+  const totalBwd = graph.backwardSteps.length;
+  const totalSteps = totalFwd + totalBwd;
+
+  // Determine node states
+  const nodeStates = {};
+  graph.nodes.forEach(n => nodeStates[n.id] = 'idle');
+
+  // Input nodes are always 'forward' once step > 0
+  if (currentStep > 0) {
+    nodeStates['a'] = 'forward';
+    nodeStates['b'] = 'forward';
+  }
+
+  // Forward steps
+  for (let i = 0; i < Math.min(currentStep, totalFwd); i++) {
+    const s = graph.forwardSteps[i];
+    nodeStates[s.active] = 'forward';
+  }
+
+  // Backward steps
+  if (currentStep > totalFwd) {
+    const bwdIdx = currentStep - totalFwd - 1;
+    for (let i = 0; i <= bwdIdx; i++) {
+      const s = graph.backwardSteps[i];
+      if (s.setGrad) {
+        Object.entries(s.setGrad).forEach(([id, g]) => {
+          const node = graph.nodes.find(n => n.id === id);
+          if (node) node.grad = g;
+        });
+      }
+      nodeStates[s.active] = 'backward';
+    }
+    // Mark the current one as active
+    if (bwdIdx >= 0 && bwdIdx < totalBwd) {
+      nodeStates[graph.backwardSteps[bwdIdx].active] = 'active';
+    }
+  }
+
+  // If in forward phase, mark current as active
+  if (currentStep > 0 && currentStep <= totalFwd) {
+    nodeStates[graph.forwardSteps[currentStep - 1].active] = 'active';
+  }
+
+  if (currentStep > totalSteps) {
+    graph.nodes.forEach(n => nodeStates[n.id] = 'done');
+  }
+
+  // Draw edges
+  graph.edges.forEach(e => {
+    const fromNode = graph.nodes.find(n => n.id === e.from);
+    const toNode = graph.nodes.find(n => n.id === e.to);
+    const fp = getNodePos(fromNode);
+    const tp = getNodePos(toNode);
+
+    const isInBackward = currentStep > totalFwd;
+    const edgeColor = isInBackward ? '#e9456080' : '#16c78460';
+
+    drawArrow(fp.x, fp.y, tp.x, tp.y, edgeColor, 1.5, false);
+
+    // Show local grad on edges during backward
+    if (currentStep > totalFwd) {
+      const lg = Number.isInteger(e.localGrad) ? e.localGrad.toString() : e.localGrad.toFixed(1);
+      drawEdgeLabel(fp.x, fp.y, tp.x, tp.y, `∂=${lg}`, '#6c5ce7');
+    }
+  });
+
+  // Draw nodes
+  graph.nodes.forEach(n => drawNode(n, nodeStates[n.id]));
+}
+
+// ==================== Logic ====================
+function buildGraph() {
+  const a = parseFloat(document.getElementById('slider-a').value);
+  const b = parseFloat(document.getElementById('slider-b').value);
+  graph = FUNCTIONS[currentFn].buildNodes(a, b);
+
+  document.getElementById('step-total').textContent = graph.forwardSteps.length + graph.backwardSteps.length;
+
+  // Update code panel
+  document.getElementById('code-a').textContent = a;
+  document.getElementById('code-b').textContent = b;
+  document.getElementById('code-op1').innerHTML = graph.codeOps[0];
+  document.getElementById('code-op2').innerHTML = graph.codeOps[1] || '';
+  document.getElementById('code-bk1').innerHTML = graph.codeBks[0] || '';
+  document.getElementById('code-bk2').innerHTML = graph.codeBks[1] || '';
+  document.getElementById('code-bk3').innerHTML = graph.codeBks[2] || '';
+}
+
+function updateUI() {
+  const totalFwd = graph.forwardSteps.length;
+  const totalBwd = graph.backwardSteps.length;
+  const totalSteps = totalFwd + totalBwd;
+
+  document.getElementById('step-num').textContent = currentStep;
+
+  // Phase badge
+  const badge = document.getElementById('phase-badge');
+  if (currentStep === 0) {
+    badge.className = 'phase-badge idle';
+    badge.textContent = '就绪';
+  } else if (currentStep <= totalFwd) {
+    badge.className = 'phase-badge forward';
+    badge.textContent = `前向传播 ${currentStep}/${totalFwd}`;
+  } else if (currentStep <= totalSteps) {
+    badge.className = 'phase-badge backward';
+    badge.textContent = `反向传播 ${currentStep - totalFwd}/${totalBwd}`;
+  } else {
+    badge.className = 'phase-badge done';
+    badge.textContent = '完成 ✓';
+  }
+
+  // Formula text
+  const formulaEl = document.getElementById('formula-text');
+  if (currentStep === 0) {
+    formulaEl.innerHTML = `<span class="hl-dim">点击 &gt; 开始前向传播，构建计算图</span>`;
+  } else if (currentStep <= totalFwd) {
+    formulaEl.innerHTML = graph.forwardSteps[currentStep - 1].desc;
+  } else if (currentStep <= totalSteps) {
+    formulaEl.innerHTML = graph.backwardSteps[currentStep - totalFwd - 1].desc;
+  } else {
+    const a = graph.nodes.find(n => n.id === 'a');
+    const b = graph.nodes.find(n => n.id === 'b');
+    formulaEl.innerHTML = `<span class="hl-yellow">完成!</span> &nbsp; a.grad = <span class="hl-red">${a.grad}</span> &nbsp; b.grad = <span class="hl-red">${b.grad}</span> &nbsp; <span class="hl-dim">（即 ∂f/∂a 和 ∂f/∂b）</span>`;
+  }
+
+  // Highlight code line
+  document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+  let activeLine = -1;
+  if (currentStep > 0 && currentStep <= totalFwd) {
+    activeLine = graph.forwardSteps[currentStep - 1].codeLine;
+  } else if (currentStep > totalFwd && currentStep <= totalSteps) {
+    activeLine = graph.backwardSteps[currentStep - totalFwd - 1].codeLine;
+  }
+  if (activeLine >= 0) {
+    const lineEl = document.querySelector(`.code-line[data-line="${activeLine}"]`);
+    if (lineEl) lineEl.classList.add('active');
+  }
+
+  render();
+}
+
+function resetState() {
+  currentStep = 0;
+  stopAuto();
+  buildGraph();
+  // Reset grads
+  graph.nodes.forEach(n => n.grad = 0);
+  updateUI();
+}
+
+function stepForward() {
+  if (!graph) return;
+  const total = graph.forwardSteps.length + graph.backwardSteps.length;
+  if (currentStep <= total) {
+    currentStep++;
+    updateUI();
+  }
+  if (currentStep > total) stopAuto();
+}
+
+function stepBackward() {
+  if (currentStep > 0) {
+    currentStep--;
+    // Rebuild to reset grads correctly
+    buildGraph();
+    graph.nodes.forEach(n => n.grad = 0);
+    // Replay grad assignments
+    const totalFwd = graph.forwardSteps.length;
+    if (currentStep > totalFwd) {
+      for (let i = 0; i < currentStep - totalFwd; i++) {
+        const s = graph.backwardSteps[i];
+        if (s.setGrad) {
+          Object.entries(s.setGrad).forEach(([id, g]) => {
+            const node = graph.nodes.find(n => n.id === id);
+            if (node) node.grad = g;
+          });
+        }
+      }
+    }
+    updateUI();
+  }
+}
+
+function toggleAuto() {
+  if (isAuto) {
+    stopAuto();
+  } else {
+    isAuto = true;
+    document.getElementById('btn-auto').textContent = 'Stop ■';
+    autoTimer = setInterval(() => {
+      stepForward();
+    }, 1200);
+  }
+}
+
+function stopAuto() {
+  isAuto = false;
+  if (autoTimer) clearInterval(autoTimer);
+  autoTimer = null;
+  document.getElementById('btn-auto').textContent = 'Auto ▶';
+}
+
+// ==================== Events ====================
+document.querySelectorAll('.func-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFn = parseInt(btn.dataset.fn);
+    resetState();
+  });
+});
+
+document.getElementById('slider-a').addEventListener('input', e => {
+  document.getElementById('val-a').textContent = parseFloat(e.target.value).toFixed(1);
+  resetState();
+});
+
+document.getElementById('slider-b').addEventListener('input', e => {
+  document.getElementById('val-b').textContent = parseFloat(e.target.value).toFixed(1);
+  resetState();
+});
+
+document.getElementById('btn-next').addEventListener('click', stepForward);
+document.getElementById('btn-prev').addEventListener('click', stepBackward);
+document.getElementById('btn-auto').addEventListener('click', toggleAuto);
+document.getElementById('btn-reset').addEventListener('click', resetState);
+
+window.addEventListener('resize', () => { if (graph) render(); });
+
+// ==================== Init ====================
+resetState();
+</script>
+
+</body>
+</html>
