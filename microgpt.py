@@ -776,7 +776,7 @@ for sample_idx in range(20):
 
         # 否则，把对应的字母加入结果
         sample.append(uchars[token_id])
-
+        print(f"sample {sample_idx+1:2d}: {''.join(sample)}")
    
     # 大多数生成的名字不在原始数据集中——它们是模型"编造"的！
     # 但它们听起来像真名字，因为模型学到了英文名字的统计规律。
