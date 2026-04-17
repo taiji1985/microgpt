@@ -777,12 +777,7 @@ for sample_idx in range(20):
         # 否则，把对应的字母加入结果
         sample.append(uchars[token_id])
 
-    # 检查生成的名字是否在原始数据集中
-    with open('./input.txt', "r") as f:
-        lines = f.readlines()
-
-    print(f"sample {sample_idx+1:2d}: {''.join(sample)}")
-    print(sample in lines)
+   
     # 大多数生成的名字不在原始数据集中——它们是模型"编造"的！
     # 但它们听起来像真名字，因为模型学到了英文名字的统计规律。
     # 这就是所谓的"幻觉"（hallucination），和 ChatGPT 编造事实是同一个现象。
